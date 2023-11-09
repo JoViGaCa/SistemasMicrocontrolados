@@ -3,7 +3,7 @@
 
 
 #define dados 8
-#define led 11
+#define led 13
 #define alarme 40
 #include "exibe_disp.h"
 #define portUnidade 2
@@ -21,8 +21,11 @@ int next=0;
 int analogPin = A1;
 float temp = 0, ultimo_temp = 0, erro = 0;
 int estado = 1;
-float Kd = 0, Ki = 0, Kp = 12;
-float Kp_gain = 0, Kd_gain = 0, Ki_gain = 0; 
+float Kd = 0, Ki = 0.5, Kp = 6;
+float Kp_gain = 0, Kd_gain = 0, Ki_gain = 0;
+float ultimo_ganho = 0, dt = 1;
+float real_gain = 0;
+
 
 
 OneWire oneWire(dados);
@@ -56,21 +59,21 @@ void setup() {
 }
 
 void loop() {
-  sensors.requestTemperatures();
-  temp = sensors.getTempCByIndex(0);
-  if(temp < 0){
-    temp = ultimo_temp;
+  if(count >= 1000){
+    count = 0;
+    sensors.requestTemperatures();
+    temp = sensors.getTempCByIndex(0);
+    Kp_gain = Kp*(40-temp);
+    Ki_gain = ultimo_ganho + Ki*dt*(40-temp);
+    real_gain = Kp_gain + Ki_gain;
+    if(real_gain > 255){
+      real_gain = 255;
+    }
+    ultimo_ganho = Ki_gain;
+    ultimo_temp = temp;
   }
-  Kp_gain = Kp*(40-temp);
-  Ki_gain = Ki*(temp-ultimo_temp);
-  Serial.println("Temperatura: " + (String) temp + " Ganho: " + (String) Kp_gain + "\n");
-  
 
-  //digitalWrite(led,HIGH);
-  //analogWrite(led,(Kp_gain + Ki_gain));
-  analogWrite(led,Kp_gain);
-
-  ultimo_temp = temp;
+  Serial.println("Temperatura: " + (String) temp + " Ganho: " + (String) (real_gain) + "\n");
 
   dezena = (int)temp/10;
   unidade = (int)temp%10;
@@ -82,6 +85,7 @@ void loop() {
 
 ISR(TIMER1_OVF_vect){
   TCNT1 = 0xC181;
+  count++;
   switch(estado){
     case 1:
       exibeUnidade(unidade);
@@ -92,4 +96,8 @@ ISR(TIMER1_OVF_vect){
       estado = 1;
       break;
   }
+  if(real_gain < 0){
+    real_gain = 0;
+  }
+  analogWrite(led, real_gain);
 }
