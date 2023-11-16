@@ -19,11 +19,11 @@ int dezena = 0;
 int count = 0;
 int next=0;
 int analogPin = A1;
-float temp = 0, ultimo_temp = 0, erro = 0;
+float temp = 0, ultimo_temp = 0, erro = 0, temp2 = 0;
 int estado = 1;
-float Kd = 0, Ki = 0.5, Kp = 6;
+float Kd = 3, Ki = 6, Kp = 18.5;
 float Kp_gain = 0, Kd_gain = 0, Ki_gain = 0;
-float ultimo_ganho = 0, dt = 1;
+float erro_anterior = 0, erro_atual = 0, ultima_temp=0;
 float real_gain = 0;
 
 
@@ -59,19 +59,25 @@ void setup() {
 }
 
 void loop() {
-  if(count >= 1000){
+  if(count >= 100){
     count = 0;
     sensors.requestTemperatures();
-    temp = sensors.getTempCByIndex(0);
-    Kp_gain = Kp*(40-temp);
-    Ki_gain = ultimo_ganho + Ki*dt*(40-temp);
-    real_gain = Kp_gain + Ki_gain;
+    temp2 = sensors.getTempCByIndex(0);
+    if(temp2 >= 0){
+      temp = temp2;
+    }
+    erro_atual = 40-temp;
+    Kp_gain = Kp*(erro_atual);
+    Ki_gain = Ki*(erro_atual+erro_anterior);
+    Kd_gain = Kd*(erro_atual-erro_anterior);
+    real_gain = Kp_gain + Ki_gain + Kd_gain;
     if(real_gain > 255){
       real_gain = 255;
     }
-    ultimo_ganho = Ki_gain;
-    ultimo_temp = temp;
+    erro_anterior = erro_atual;
+    ultima_temp=temp;
   }
+  Serial.println("Ganho P: " + (String) Kp_gain + " Ganho I: " + (String) Ki_gain + " Ganho D: " + (String) Kd_gain);
 
   Serial.println("Temperatura: " + (String) temp + " Ganho: " + (String) (real_gain) + "\n");
 
